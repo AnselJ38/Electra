@@ -129,6 +129,4 @@ We welcome contributions from the community to improve Electra. To contribute:
 3. **Commit your changes** and push them to your fork.
 4. **Submit a pull request** to the main repository.
 
-```
 
-```
