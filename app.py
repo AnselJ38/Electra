@@ -1,14 +1,55 @@
 import random
 from datetime import datetime
 import smtplib
+import mysql.connector
+import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from flask import Flask, render_template, url_for, request, redirect, session, jsonify, flash
+from flask import Flask, render_template, url_for, request, current_app as app, redirect, session, jsonify, flash
 from DBConnection import Db
 
 app = Flask(__name__)
 app.secret_key="123"
 
+app.config['DB_HOST'] = 'localhost'  # Database Host
+app.config['DB_USER'] = 'werego_user'  # Your MySQL username
+app.config['DB_PASSWORD'] = 'password123'  # Your MySQL password
+app.config['DB_NAME'] = 'ev_db'
+
+class Db:
+    def __init__(self):
+        self.conn = mysql.connector.connect(
+            host=app.config['DB_HOST'],
+            user=app.config['DB_USER'],
+            password=app.config['DB_PASSWORD'],
+            database=app.config['DB_NAME']
+        )
+        self.cursor = self.conn.cursor(dictionary=True)
+
+    def select(self, query, params=None):
+        self.cursor.execute(query, params or ())
+        return self.cursor.fetchall()
+
+    def selectOne(self, query, params=None):
+        self.cursor.execute(query, params or ())
+        return self.cursor.fetchone()
+
+    def insert(self, query, params=None):
+        self.cursor.execute(query, params or ())
+        self.conn.commit()
+        return self.cursor.lastrowid
+
+    def delete(self, query, params=None):
+        self.cursor.execute(query, params or ())
+        self.conn.commit()
+
+    def update(self, query, params=None):
+        self.cursor.execute(query, params or ())
+        self.conn.commit()
+
+    def close(self):
+        self.cursor.close()
+        self.conn.close()
 
 
 #//////////////////////////////////////////////////////////////COMMON/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,25 +103,25 @@ def forgot_password():
         if not user:
             return "Sorry, we couldn't find an account associated with that email address.", 400
 
-         # Send email with passw    ord reset instructions or link
+        # Send email with password reset instructions or link
         password = user['password']
-        sender_email = "a97298570@gmail.com"
-        sender_password = "56B50C32C322385ED3009518610638823005"
+        sender_email = "26ansel@gmail.com"
+        sender_password = "robo99501"
         recipient_email = email
         subject = "Password Reset for EV STATION BOOKING WEBSITE"
         content = "Your password for EV STATION BOOKING WEBSITE has been reset. Please login with your new password."
         host = "smtp.gmail.com"
         port = 465
         message = MIMEMultipart()
-        message['From'] = Header(sender_email)
-        message['To'] = Header(recipient_email)
-        message['Subject'] = Header(subject)
+        message['From'] = sender_email
+        message['To'] = recipient_email
+        message['Subject'] = subject
         message.attach(MIMEText(content, 'plain', 'utf-8'))
+        
         try:
             with smtplib.SMTP_SSL(host, port) as server:            
-                server.login("a97298570@gmail.com", "56B50C32C322385ED3009518610638823005")
-                server.sendmail("a97298570@gmail.com", recipient_email, message.as_string())
-
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, message.as_string())
                 return "An email has been sent to your email address with instructions on how to reset your password."
         except smtplib.SMTPAuthenticationError:
             return "Failed to authenticate with the email server. Please check your email credentials.", 500
@@ -267,25 +308,42 @@ def adm_delete_user(user_id):
 
 @app.route('/view_booking')
 def view_booking():
-    print('session ', session)
-    if session['user_type'] == 'admin':
-        db=Db()
-        bookings = db.select("select Booking_id	, Booking_date, Time_from, Time_to, City, Station_name, Available_ports, login_id  from booking  order by Booking_date desc;")
+    if 'user_type' in session and session['user_type'] == 'admin':
+        db = Db()
+
+        # SQL query to fetch bookings and related station info
+        bookings_query = """
+            SELECT b.id AS Booking_id, b.booking_start_time AS Booking_date, 
+                   b.booking_start_time AS Time_from, b.booking_end_time AS Time_to, 
+                   cs.city AS City, cs.station_name AS Station_name, 
+                   cs.available_ports AS Available_ports, b.user_id AS login_id
+            FROM charging_station_booking b
+            JOIN charging_station_list cs ON b.charging_station_id = cs.id
+            ORDER BY b.booking_start_time DESC
+        """
+        bookings = db.select(bookings_query)
+
+        # Return the bookings to the view template
         return render_template('admin/view_booking.html', bookings=bookings)
     else:
         return redirect('/')
+
 
 # ===========delete booking
 
 @app.route("/adm_delete_booking/<Booking_id>")
 def adm_delete_booking(Booking_id):
-    print('session ', session)
-    if session['user_type'] == 'admin':
+    if 'user_type' in session and session['user_type'] == 'admin':
         db = Db()
-        qry = db.delete("delete from booking where Booking_id='"+Booking_id+"'")
-        return '''<script>alert('booking deleted');window.location="/view_booking"</script>'''
+        
+        # SQL query to delete the booking by Booking_id (which is 'id' in charging_station_booking table)
+        qry = db.delete("DELETE FROM charging_station_booking WHERE id = %s", (Booking_id,))
+        
+        # Return an alert message after deletion
+        return '''<script>alert('Booking deleted'); window.location="/view_booking"</script>'''
     else:
         return redirect('/')
+
 
 
 
@@ -296,13 +354,30 @@ def adm_delete_booking(Booking_id):
 @app.route('/user-dashboard')
 def user_dashboard():
     if 'user_type' in session and session['user_type'] == "user":
-        username = session['username'] # get the username from the session
+        username = session['username']  # Get the username from the session
         db = Db()
-        bookings = db.select("select * from booking where login_id = '%s' order by Booking_date desc;", (session['uid'],))
-        # print(bookings)  # print out the value of the bookings variable
+        
+        # Query to get the user's booking details
+        bookings = db.select("""
+            SELECT csb.id AS booking_id, 
+                   csb.booking_start_time AS Booking_date, 
+                   csb.booking_start_time AS Time_from, 
+                   csb.booking_end_time AS Time_to, 
+                   csl.city AS City,
+                   csl.station_name AS Station_name, 
+                   csl.available_ports AS Available_ports
+            FROM charging_station_booking csb
+            JOIN charging_station_list csl ON csb.charging_station_id = csl.id
+            WHERE csb.user_id = %s
+            ORDER BY csb.booking_start_time DESC;
+        """, (session['uid'],))
+        
         return render_template("user/user-login-dashboard.html", bookings=bookings, username=username)
     else:
         return redirect('/')
+
+
+
 
 
 @app.route('/usr_delete_booking/<int:booking_id>')
@@ -310,12 +385,13 @@ def usr_delete_booking(booking_id):
     if 'user_type' in session and session['user_type'] == "user":
         db = Db()
         
-        # Delete the booking for the specific user and booking_id
-        db.delete("DELETE FROM booking WHERE booking_id = %s AND login_id = %s", (booking_id, session['uid']))
+        # Use the correct column name 'id' for booking ID
+        db.delete("DELETE FROM charging_station_booking WHERE id = %s AND user_id = %s", (booking_id, session['uid']))
         
         return '''<script>alert('Booking deleted');window.location="/user-dashboard"</script>'''
     else:
         return redirect('/user-dashboard')
+
 
 
 
@@ -419,26 +495,44 @@ def booking_form():
 @app.route('/book', methods=['POST'])
 def book():
     if 'user_type' in session and session['user_type'] == 'user':
-        # get the form data submitted by the user
+        # Get the form data submitted by the user
         station_name = request.form['Station_name']
         city = request.form['City']
-        available_ports = request.form['Available_ports']
-        booking_date = request.form['Booking_date']
-        time_from = request.form['Time_from']
-        time_to = request.form['Time_to']
+        booking_date = request.form['Booking_date']  # This should be in 'YYYY-MM-DD' format
+        time_from = request.form['Time_from']  # This should be in 'HH:MM' format
+        time_to = request.form['Time_to']  # This should be in 'HH:MM' format
         login_id = session['uid']
-
 
         db = Db()
 
-        # get the current timestamp
+        # Get the current timestamp for when the booking was made
         created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # insert the booking data into the MySQL table
-        sql = "insert into booking (Station_name, City, Available_ports, Booking_date, Time_from, Time_to, Created_id, login_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-        booking_id = db.insert(sql, (station_name, city, available_ports, booking_date, time_from, time_to, created_at, login_id))
+        # Fetch the charging_station_id and available_ports based on station_name and city
+        station_query = "SELECT id, available_ports FROM charging_station_list WHERE station_name = %s AND city = %s"
+        station_result = db.select(station_query, (station_name, city))
 
-        # redirect the user to their dashboard
+        if not station_result:
+            return "Station not found!"
+
+        charging_station_id = station_result[0]['id']  # Get the station ID
+        available_ports = station_result[0]['available_ports']  # Get available ports
+
+        # Combine the booking date with the time to create a full DATETIME format for start and end times
+        booking_start_time = f"{booking_date} {time_from}:00"  # Add seconds for proper DATETIME format
+        booking_end_time = f"{booking_date} {time_to}:00"  # Add seconds for proper DATETIME format
+
+        # Set booking status to 'Active' by default
+        status = 'Active'
+
+        # Insert the booking data into the charging_station_booking table
+        sql = """
+            INSERT INTO charging_station_booking (charging_station_id, user_id, booking_start_time, booking_end_time, status)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        booking_id = db.insert(sql, (charging_station_id, login_id, booking_start_time, booking_end_time, status))
+
+        # Return the booking confirmation page
         return render_template("user/user-login-dashboard.html", data={
             'Station_name': station_name,
             'City': city,
@@ -446,11 +540,12 @@ def book():
             'Booking_date': booking_date,
             'Time_from': time_from,
             'Time_to': time_to,
-            'Created_id': created_at,
+            'Created_at': created_at,
             'Booking_id': booking_id
         })
     else:
         return redirect('/booking-form')
+
 
 
 

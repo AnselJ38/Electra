@@ -1,8 +1,8 @@
-# Werego - Electric Vehicle Charging Station Finder
+# Electra - Electric Vehicle Charging Station Finder
 
 ## Overview
 
-The advent of electric vehicles (EVs) has ushered in a new era of eco-friendly and sustainable transportation. However, a significant challenge faced by EV owners is the availability of charging infrastructure. To address this issue, Werego is an innovative web-based system that empowers EV owners to locate, access, and reserve charging stations conveniently.
+The advent of electric vehicles (EVs) has ushered in a new era of eco-friendly and sustainable transportation. However, a significant challenge faced by EV owners is the availability of charging infrastructure. To address this issue, Electra is an innovative web-based system that empowers EV owners to locate, access, and reserve charging stations conveniently.
 
 ### Key Features
 
@@ -27,7 +27,7 @@ Ensure you have the following software and tools installed:
 
 ## Installation
 
-Follow these steps to set up Werego on your local machine:
+Follow these steps to set up Electra on your local machine:
 
 1. **Clone the Repository:**
 
@@ -56,17 +56,8 @@ Follow these steps to set up Werego on your local machine:
       Download and install XAMPP from the official website.
       - Start the XAMPP Control Panel.
       Start the Apache and MySQL services.
-      Install MySQL Workbench:
 
-      Download and install MySQL Workbench from the official website.
-      - Open MySQL Workbench and create a new connection:
-      Connection Name: Localhost
-      Hostname: localhost
-      Port: 3306 (or the port you have configured for MySQL)
-      Username: root
-      Password: admin 
-
-      Open MySQL and create a database for Werego (e.g., ev_db).
+      Open MySQL and create a database for Electra (e.g., ev_db).
       Update the database credentials in the project's configuration file to match your local MySQL setup.
       Use the provided SQL file (if available) or manually create tables for booking, user, admin, and any other required entities based on the project’s models.
 
@@ -78,11 +69,11 @@ Follow these steps to set up Werego on your local machine:
 
 6. **Access the Application:**
 
-Open your browser and navigate to http://127.0.0.1:5000 to start using Werego.
+Open your browser and navigate to http://127.0.0.1:5000 to start using Electra.
 
 ## Usage
 
-Start the Application: Launch the Werego application.
+Start the Application: Launch the Electra application.
 
 Search for Charging Stations: Use the search feature to find charging stations near you.
 
@@ -131,16 +122,12 @@ Booking Page
 
 ## Contributing
 
-We welcome contributions from the community to improve Werego. To contribute:
+We welcome contributions from the community to improve Electra. To contribute:
 
 1. **Fork the repository.**
 2. **Create a new branch** for your feature or bug fix.
 3. **Commit your changes** and push them to your fork.
 4. **Submit a pull request** to the main repository.
-
-### Future Plans
-
-I will be converting Werego to use Next.js, React, TypeScript, Tailwind CSS, MongoDB, FastAPI, Express, Node.js, GraphQL, and Jest. The deployment will be done on Vercel. Feel free to create a fork and implement features or enhancements using these technologies!
 
 ```
 

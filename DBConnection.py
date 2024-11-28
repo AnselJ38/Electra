@@ -1,14 +1,14 @@
 import mysql.connector
 
 
-mydb =mysql.connector.connect(host="localhost", user="root", passwd="admin")
+mydb =mysql.connector.connect(host="localhost", user="root", passwd="")
 
 class Db:
     def __init__(self):
         self.cnx = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="admin",
+            password="",
             database="ev_db"
             )
         self.cur = self.cnx.cursor(dictionary=True,buffered=True)
